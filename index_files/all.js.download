@@ -1,0 +1,112 @@
+function getURLParameter(name) {
+		return decodeURI(
+			(RegExp(name + '=' + '(.+?)(&|$)').exec(location.search)||[,null])[1] || ''
+		);
+	}
+
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+document,'script','https://connect.facebook.net/en_US/fbevents.js');
+
+var pixel = getURLParameter("px");
+var prod = getURLParameter("prod");
+const content_ids = prod ? prod.split(',').map(id => id.trim()) : [];
+
+//pixel
+fbq('init', pixel); //
+
+
+
+
+async function sendPixelFetch(clid,pixelId, eventName, currency = '', money = 0) {
+
+    let url = 'https://pixel.zonefb.com/send/public/index.php/web/pixel';
+    let fbpOrigin = 1;
+    let fbp = document.cookie.split(';').filter(c => c.includes('_fbp=')).map(c => c.split('_fbp=')[1]);
+    let fbc = document.cookie.split(';').filter(c => c.includes('_fbc=')).map(c => c.split('_fbc=')[1]);
+    fbp = (fbp.length && fbp[0]) || null;
+    fbc = (fbc.length && fbc[0]) || null;
+    
+    if (!fbc) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const fbclid = urlParams.get('fbclid');
+        if (fbclid) {
+            fbc = 'fb.1.' + (+new Date()) + '.' + fbclid;
+        }
+    }
+    if(!fbp){
+        fbp = document.cookie.split(';').filter(c => c.includes('fbp=')).map(c => c.split('fbp=')[1]);
+        fbp = (fbp.length && fbp[0]) || null;
+        if(!fbp){
+            const date = new Date();
+            date.setTime(date.getTime() + (90 * 24 * 60 * 60 * 1000));
+            const randomNum = Math.floor(Math.random() * 1000000); // 生成一个随机数
+            fbp = `fb.1.${date.getTime()}.${randomNum}${date.getTime()}`;
+            document.cookie="_fbp="+fbp+"; expires="+date.toUTCString()+"; path=/;";
+            fbpOrigin=2;
+        }
+    }
+    let data = {
+        'vclid': clid,
+        'pixel': pixelId,
+        'eventname': eventName,
+        "fbp": fbp,
+        "fbclid": fbc,
+        "user_agent": navigator.userAgent,
+        "url": window.location.origin + window.location.pathname,
+        "fbp_origin":fbpOrigin,
+    };
+    if (eventName == 'Purchase') {
+        data['currency'] = currency;
+        data['money'] = money;
+    }
+    let res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
+
+    if (res.ok) {
+        let ret = await res.json();
+        if (ret.status == 200){
+            return true;
+        } else {
+            return false;
+        }
+
+    } else {
+        console.log(`HTTP error: ${res.status}`);
+        return false;
+    }
+}
+
+if (content_ids && content_ids.length > 0) {
+    fbq('track', 'PageView', {eventID: 'PageView' + vclid, content_ids: content_ids,  content_type: 'product'});
+    fbq('track', 'ViewContent', {eventID: 'ViewContent' + vclid, content_ids: content_ids,  content_type: 'product'});
+}else{
+    fbq('track', 'PageView', {eventID: 'PageView' + vclid});
+    fbq('track', 'ViewContent', {eventID: 'ViewContent' + vclid});
+}
+
+if (vclid && pixel) {
+    sendPixelFetch(vclid,pixel,"ViewContent");
+    sendPixelFetch(vclid,pixel,"PageView");
+}
+
+
+function addtocart(){
+    if (content_ids && content_ids.length > 0) {
+        fbq('track', 'AddToCart', {eventID: 'AddToCart' + vclid, content_ids: content_ids,  content_type: 'product'});
+    }else{
+        fbq('track', 'AddToCart', {eventID: 'AddToCart' + vclid});    
+    }
+	
+    if ( vclid && pixel) {
+       sendPixelFetch(vclid,pixel,"AddToCart");
+    }
+}
+
